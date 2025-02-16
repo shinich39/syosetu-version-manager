@@ -1,0 +1,47 @@
+{
+  "name": "syosetu-version-manager",
+  "version": "1.0.0",
+  "description": "mikumiku",
+  "main": "bin/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "npm run lint && npm run prettier && npm run compile && npm run start:dev",
+    "start:prod": "electron .",
+    "start:dev": "cross-env NODE_ENV=development electron .",
+    "test": "tsx --test \"**/*.test.{js,jsx,ts,tsx}\"",
+    "build": "npm run lint && npm run prettier && npm run compile && node scripts/build.js",
+    "compile": "node scripts/compile.js",
+    "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\" \"app/**/*.{js,jsx,ts,tsx}\"",
+    "lint": "eslint \"app/**/*\"",
+    "lint:fix": "eslint \"app/**/*\" --fix"
+  },
+  "keywords": [
+    "electron"
+  ],
+  "author": "shinich39 <shinich39@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@types/node": "^22.13.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "eslint": "^9.19.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.22.0"
+  },
+  "dependencies": {
+    "@types/lodash": "^4.17.15",
+    "@types/luxon": "^3.4.2",
+    "filenamify": "^6.0.0",
+    "lodash": "^4.17.21",
+    "luxon": "^3.5.0",
+    "node-syosetu-downloader": "github:shinich39/node-syosetu-downloader",
+    "update-electron-app": "^3.1.1",
+    "utils-js": "github:shinich39/utils-js",
+    "uuid": "^11.0.5"
+  }
+}
