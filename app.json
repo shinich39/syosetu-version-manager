@@ -1,0 +1,11 @@
+{
+  "appId": "com.shinich39.syosetuversionmanager",
+  "productName": "Syosetu Version Manager",
+  "scheme": "syosetuversionmanager",
+  "author": "shinich39",
+  "publish": {
+    "provider": "github",
+    "owner": "shinich39",
+    "repo": "syosetu-version-manager"
+  }
+}

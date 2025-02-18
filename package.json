@@ -8,10 +8,11 @@
     "start": "npm run lint && npm run prettier && npm run compile && npm run start:dev",
     "start:prod": "electron .",
     "start:dev": "cross-env NODE_ENV=development electron .",
+    "commit": "node scripts/commit.js",
     "test": "tsx --test \"**/*.test.{js,jsx,ts,tsx}\"",
     "build": "npm run lint && npm run prettier && npm run compile && node scripts/build.js",
     "compile": "node scripts/compile.js",
-    "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\" \"app/**/*.{js,jsx,ts,tsx}\"",
+    "prettier": "prettier --write \"app/**/*.{js,jsx,ts,tsx}\"",
     "lint": "eslint \"app/**/*\"",
     "lint:fix": "eslint \"app/**/*\" --fix"
   },
@@ -26,6 +27,7 @@
     "cross-env": "^7.0.3",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
     "eslint": "^9.19.0",
     "eslint-config-prettier": "^10.0.1",
     "prettier": "^3.4.2",
@@ -39,9 +41,10 @@
     "filenamify": "^6.0.0",
     "lodash": "^4.17.21",
     "luxon": "^3.5.0",
+    "node-git-sync": "github:shinich39/node-git-sync",
     "node-syosetu-downloader": "github:shinich39/node-syosetu-downloader",
-    "update-electron-app": "^3.1.1",
     "utils-js": "github:shinich39/utils-js",
-    "uuid": "^11.0.5"
+    "uuid": "^11.0.5",
+    "yaml": "^2.7.0"
   }
 }

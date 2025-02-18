@@ -40,6 +40,27 @@ const log = (obj) => {
   );
 };
 
+// ### Narou
+// Short: https://ncode.syosetu.com/n5338kc/
+// Going: https://ncode.syosetu.com/n2236kb/
+// Completed: https://ncode.syosetu.com/n3620kc/
+// 18: https://novel18.syosetu.com/n3193jo/
+
+// ### Kakuyomu
+// Going: https://kakuyomu.jp/works/16818093093040916427
+// Completed: https://kakuyomu.jp/works/16818093094170635844
+
+// ### Hameln
+// Short: https://syosetu.org/novel/365664/
+// Going: https://syosetu.org/novel/367279/
+// Completed: https://syosetu.org/novel/201750/
+
+// ### Alphapolis
+// Short Going: https://www.alphapolis.co.jp/novel/643190032/456940721
+// Short Completed: https://www.alphapolis.co.jp/novel/501580631/997939367
+// Going: https://www.alphapolis.co.jp/novel/76166291/213939438
+// Completed: https://www.alphapolis.co.jp/novel/77586146/733940483
+
 describe(__rel, () => {
   test("createDummies", () => {
     const cookies = {

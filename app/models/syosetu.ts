@@ -9,12 +9,14 @@ export interface Syosetu {
   files: SyosetuFile[];
   createdAt: number;
   updatedAt: number;
+  removedAt: number;
   syncedAt: number;
 }
 
 export interface SyosetuFile {
   id: string;
-  createdAt: number;
+  updatedAt: number;
+  removedAt: number;
   path: string;
 }
 
