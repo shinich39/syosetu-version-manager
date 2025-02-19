@@ -22,7 +22,7 @@ In development
 
 ### Library
 
-Library directory is "Users/YOUR_NAME/Syosetu Library/"
+Library directory is "/Users/YOUR_NAME/Syosetu Library/"
 
 ### Force Update
 
