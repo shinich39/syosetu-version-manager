@@ -4,7 +4,7 @@ In development
 
 ## Features
 
-- Download registered syosetu content.
+- Download registered syosetu data.
 - You can change syosetu version to previous version. (like a snapshot)
 - Check for updates when running the application.
 - Checks for updates every 3 hours while the application is running.
@@ -16,17 +16,17 @@ In development
 1. Run application
 2. Check tray icon
 3. Copy syosetu url for registration. (narou, kakuyomu, alphapolis, hameln)
-4. Right click on tray icon
-5. Any provider > Any syosetu > Open in Finder/Explorer
+4. Click on tray icon
+5. Any provider > Any syosetu > Open in Finder/File Explorer
 6. Read txt files
 
 ### Library
 
-Default library path is "USER_DIRECTORY/Syosetu Library/"
+Library directory is "Users/YOUR_NAME/Syosetu Library/"
 
 ### Force Update
 
-"Force Update" is overwrite downloaded chapters data.  
+"Force Update" is re-download and overwrite data.  
 Used when syosetu has been edited.  
 
 ## Acknowledgements

@@ -833,6 +833,7 @@ app.whenReady().then(() => {
       tray.popUpContextMenu();
     }, 39);
   });
+  
   // app.on("activate", () => {});
 
   Update.github("shinich39", "syosetu-version-manager");
