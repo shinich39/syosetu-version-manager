@@ -14,20 +14,19 @@ In development
 ### Usage
 
 1. Run application
-2. Check tray icon
-3. Copy syosetu url for registration. (narou, kakuyomu, alphapolis, hameln)
-4. Click on tray icon
-5. Any provider > Any syosetu > Open in Finder/File Explorer
-6. Read txt files
+2. Copy syosetu url for registration. (narou, kakuyomu, alphapolis, hameln)
+3. Click on tray icon
+4. Any provider > Any syosetu > Open in Finder/File Explorer
+5. Read txt files
 
 ### Library
 
 Library directory is "/Users/YOUR_NAME/Syosetu Library/"
 
-### Force Update
+### Re-Download
 
-"Force Update" is re-download and overwrite data.  
-Used when syosetu has been edited.  
+Syosetu does not apply edits after downloading.  
+Click the Re-Download button to apply edits.  
 
 ## Acknowledgements
 

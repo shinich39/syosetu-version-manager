@@ -19,7 +19,7 @@ import {
   setCacheDir,
 } from "node-syosetu-downloader";
 import { Cookies } from "./utils/cookie.js";
-import { isArray, isNumber, isObject, isString } from "utils-js";
+import { isArray, isError, isNumber, isObject, isString } from "utils-js";
 import { DateTime } from "luxon";
 import filenamify from "filenamify";
 import { Syosetu, SyosetuFile, SyosetuMeta } from "./models/syosetu.js";
@@ -40,6 +40,9 @@ if (process.platform === "win32") {
   app.setAppUserModelId("com.shinich39.syosetuversionmanager");
 }
 
+const IS_DEV = process.env.NODE_ENV === "development";
+const UPDATE_DELAY = 1000 * 60 * 60 * 3; // 3 hours
+const ADJUSTED_UPDATE_DELAY = 1000 * 60 * 60 * 3 + 1000 * 60 * 3; // 3 hours 3 mins
 const HOME_DIR = path.join(app.getPath("home"), ".syosetuvm");
 const MAX_LABEL_LENGTH = 39;
 const PROVIDER_NAMES: Record<string, string> = {
@@ -54,7 +57,7 @@ let cookies = new Cookies(),
   execSync = false,
   execUpdate = false,
   clipboardObserver: NodeJS.Timeout | null = null,
-  prevClipboard = "";
+  prevClipboard = clipboard.readText();
 
 // change node-syosetu-downloader cache directory
 setCacheDir(path.join(app.getPath("sessionData"), ".puppeteer"));
@@ -68,17 +71,15 @@ if (process.platform === "darwin") {
 createClipboardObserver();
 
 (() => {
-  let updatedAt = 0;
+  // force update with run
+  updateSyosetuAll(true).then(syncSyosetuAll);
+
   setInterval(
     () => {
-      // 3 hours
-      if (updatedAt + 1000 * 60 * 60 * 3 < Date.now()) {
-        updatedAt = Date.now();
-        updateSyosetuAll().then(() => syncSyosetuAll());
-      }
+      updateSyosetuAll(true).then(syncSyosetuAll);
     },
-    // 1 min
-    1000 * 60 * 60
+    // 3 hours
+    UPDATE_DELAY
   );
 })();
 
@@ -224,8 +225,10 @@ function createClipboardObserver() {
     const currClipboard = clipboard.readText();
     if (prevClipboard !== currClipboard) {
       prevClipboard = currClipboard;
-      parseClipboard(currClipboard);
-      updateSyosetuAll().then(() => syncSyosetuAll());
+      const createdCount = parseClipboard(currClipboard);
+      if (createdCount > 0) {
+        updateSyosetuAll().then(syncSyosetuAll);
+      }
     }
   }, 512);
 }
@@ -267,16 +270,18 @@ function parseClipboard(text: string) {
     addedCount++;
   }
 
-  if (process.env.NODE_ENV === "development") {
+  if (IS_DEV) {
     console.log(`${addedCount} syosetu added.`);
   } else if (addedCount > 0) {
     showNoti(`${addedCount} syosetu added.`);
   }
 
   updateTray();
+
+  return addedCount;
 }
 
-async function updateSyosetu(syosetu: Syosetu) {
+async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
   let isUpdated = false;
 
   const { url, provider, metas, files } = syosetu;
@@ -284,14 +289,26 @@ async function updateSyosetu(syosetu: Syosetu) {
   const lastMeta = metas[metas.length - 1];
 
   if (syosetu.removedAt) {
-    console.error(`Removed syosetu will not be updated: ${provider}/${bookId}`);
+    if (IS_DEV) {
+      console.log(`Removed syosetu will not be updated: ${provider}/${bookId}`);
+    }
+    return isUpdated;
+  }
+
+  if (syosetu.updatedAt + ADJUSTED_UPDATE_DELAY > Date.now() && !force) {
+    if (IS_DEV) {
+      console.log(`Not time to update yet: ${provider}/${bookId}`);
+    }
     return isUpdated;
   }
 
   try {
     // download latest meta and compare it to previous meta
     const latestMeta = await getMetadata(provider, bookId);
-    if (!lastMeta || lastMeta.updatedAt !== latestMeta.updatedAt) {
+
+    // sync after update
+    isUpdated = !lastMeta || lastMeta.updatedAt !== latestMeta.updatedAt;
+    if (isUpdated) {
       const metaId = "_" + latestMeta.updatedAt;
       const metaPath = getSyosetuMetaPath(provider, bookId, metaId);
       writeJSON(metaPath, latestMeta);
@@ -325,33 +342,29 @@ async function updateSyosetu(syosetu: Syosetu) {
           };
 
           files.push(newFile);
-
-          syosetu.updatedAt = Date.now();
-          isUpdated = true;
         } catch (err) {
           console.error(
             `Chapter Creation Error: ${provider}/${bookId}/${chapterId}`
           );
         }
       }
-
-      syosetu.updatedAt = Date.now();
-      isUpdated = true;
     }
   } catch (err) {
-    if (isObject(err) && err.status === 404) {
+    if (isError(err) && err.status === 404) {
       console.error(`Syosetu has been removed: ${provider}/${bookId}`);
       syosetu.removedAt = Date.now();
-      isUpdated = true;
     } else {
       console.error(`Metadata Fetch Error: ${provider}/${bookId}`);
     }
+    // skip file update
     return isUpdated;
   }
 
   // download and write chapters
   for (const file of files) {
     const chapterId = file.id;
+
+    file.updatedAt = Date.now();
 
     if (file.removedAt) {
       console.error(
@@ -365,20 +378,15 @@ async function updateSyosetu(syosetu: Syosetu) {
       if (fs.existsSync(filePath)) {
         continue;
       }
-
       const fileData = await getChapter(provider, bookId, chapterId);
       writeJSON(filePath, fileData);
-
-      file.updatedAt = Date.now();
-      syosetu.updatedAt = Date.now();
       isUpdated = true;
     } catch (err) {
-      if (isObject(err) && err.status === 404) {
+      if (isError(err) && err.status === 404) {
         console.error(
           `Chapter has been removed: ${provider}/${bookId}/${chapterId}`
         );
         file.removedAt = Date.now();
-        isUpdated = true;
       } else {
         console.error(
           `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
@@ -390,46 +398,64 @@ async function updateSyosetu(syosetu: Syosetu) {
   return isUpdated;
 }
 
-async function updateSyosetuAll() {
+async function updateSyosetuAll(force?: boolean) {
+  let updatedCount = 0;
+
   if (inProgress) {
     execUpdate = true;
-    return;
+    return updatedCount;
   }
 
   inProgress = true;
   execUpdate = false;
-
   updateTray();
 
-  let i = 0,
-    updatedCount = 0;
-  while (i < cookies.syosetus.length) {
-    const syosetu = cookies.syosetus[i];
-    const isUpdated = await updateSyosetu(syosetu);
-    if (isUpdated) {
-      updatedCount++;
-      cookies.updatedAt = Date.now();
-    }
-    cookies.write();
-    i++;
+  if (IS_DEV && force) {
+    console.log("start forced update.");
   }
 
-  if (process.env.NODE_ENV === "development") {
+  let i = 0;
+  while (i < cookies.syosetus.length) {
+    const syosetu = cookies.syosetus[i];
+    try {
+      const isUpdated = await updateSyosetu(syosetu, force);
+      if (isUpdated) {
+        syosetu.updatedAt = Date.now();
+        updatedCount++;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    cookies.updatedAt = Date.now();
+
+    if (execUpdate) {
+      execUpdate = false;
+      i = 0;
+    } else {
+      i++;
+    }
+  }
+
+  if (IS_DEV) {
     console.log(`${updatedCount} syosetu updated.`);
   } else if (updatedCount > 0) {
     showNoti(`${updatedCount} syosetu updated.`);
   }
 
-  inProgress = false;
-  updateTray();
-
-  if (execUpdate) {
-    execUpdate = false;
-    await updateSyosetuAll();
-  } else {
+  try {
     // close browser
     await closeNSD();
+  } catch (err) {
+    console.error(err);
   }
+
+  execUpdate = false;
+  inProgress = false;
+  cookies.write();
+  updateTray();
+
+  return updatedCount;
 }
 
 async function forceUpdateChapters(syosetu: Syosetu) {
@@ -455,8 +481,10 @@ async function forceUpdateChapters(syosetu: Syosetu) {
   const { provider } = syosetu;
   const bookId = syosetu.id;
 
+  // sync after update
+  syosetu.syncedAt = 0;
+
   // download and write chapters
-  let isUpdated = false;
   for (const file of syosetu.files) {
     const chapterId = file.id;
 
@@ -475,15 +503,12 @@ async function forceUpdateChapters(syosetu: Syosetu) {
       writeJSON(filePath, fileData);
 
       file.updatedAt = Date.now();
-      syosetu.updatedAt = Date.now();
-      isUpdated = true;
     } catch (err) {
-      if (isObject(err) && err.status === 404) {
+      if (isError(err) && err.status === 404) {
         console.error(
           `Chapter has been removed: ${provider}/${bookId}/${chapterId}`
         );
         file.removedAt = Date.now();
-        isUpdated = true;
       } else {
         console.error(
           `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
@@ -492,39 +517,44 @@ async function forceUpdateChapters(syosetu: Syosetu) {
     }
   }
 
+  try {
+    syncSyosetu(syosetu);
+  } catch (err) {
+    console.error(err);
+  }
+
   inProgress = false;
+  cookies.write();
   updateTray();
 
-  if (isUpdated) {
-    cookies.write();
+  if (execUpdate) {
+    updateSyosetuAll().then(syncSyosetuAll);
+  } else if (execSync) {
+    syncSyosetuAll();
   }
 }
 
 function syncSyosetu(syosetu: Syosetu) {
-  let isSynced = false;
-
   const provider = syosetu.provider;
   const bookId = syosetu.id;
+
+  // check syosetu is updated
+  const libPath = getLibSyosetuPath(provider, bookId);
+  const isUpdated =
+    syosetu.updatedAt > syosetu.syncedAt || !fs.existsSync(libPath);
+  if (!isUpdated) {
+    return false;
+  }
+
+  // read meta.json
   const currMeta = getCurrentMeta(syosetu);
   const meta = currMeta
     ? (readJSON(currMeta.path) as IMeta | undefined)
     : undefined;
 
   if (!meta) {
-    return isSynced;
+    return false;
   }
-
-  const libPath = getLibSyosetuPath(provider, bookId);
-  // 1 min
-  const isUpdated =
-    !fs.existsSync(libPath) || syosetu.syncedAt + 1000 * 60 < syosetu.updatedAt;
-
-  if (!isUpdated) {
-    return isSynced;
-  }
-
-  syosetu.syncedAt = Date.now();
-  isSynced = true;
 
   // clear directory
   removeDir(libPath);
@@ -587,53 +617,57 @@ function syncSyosetu(syosetu: Syosetu) {
     writeText(filePath, texts.join("\n\n\n"));
   })();
 
-  return isSynced;
+  return true;
 }
 
 async function syncSyosetuAll() {
+  let synchronizedCount = 0;
+
   if (inProgress) {
     execSync = true;
-    return;
+    return synchronizedCount;
   }
 
   inProgress = true;
   execSync = false;
-
   updateTray();
 
-  let i = 0,
-    synchronizedCount = 0;
+  let i = 0;
   while (i < cookies.syosetus.length) {
     const syosetu = cookies.syosetus[i];
     try {
       const isSynced = syncSyosetu(syosetu);
       if (isSynced) {
+        syosetu.syncedAt = Date.now();
         synchronizedCount++;
-        cookies.syncedAt = Date.now();
       }
-      cookies.write();
+      cookies.syncedAt = Date.now();
     } catch (err) {
       console.error(err);
     }
-    i++;
+    if (execUpdate) {
+      execUpdate = false;
+      execSync = false;
+      await updateSyosetuAll();
+      i = 0;
+    } else if (execSync) {
+      execSync = false;
+      i = 0;
+    } else {
+      i++;
+    }
   }
 
+  execSync = false;
   inProgress = false;
   updateTray();
+  cookies.write();
 
-  if (execUpdate) {
-    execUpdate = false;
-    execSync = false;
-    await updateSyosetuAll();
-    await syncSyosetuAll();
-  } else if (execSync) {
-    execSync = false;
-    await syncSyosetuAll();
-  }
-
-  if (process.env.NODE_ENV === "development") {
+  if (IS_DEV) {
     console.log(`${synchronizedCount} syosetu synchronized.`);
   }
+
+  return synchronizedCount;
 }
 
 function createTrayMenu() {
@@ -647,6 +681,21 @@ function createTrayMenu() {
     for (const syosetu of syosetus) {
       const currMeta = getCurrentMeta(syosetu);
       const [startIndex, endIndex] = getCurrentMetaRange(syosetu, 5);
+      const lastMeta = syosetu.metas[syosetu.metas.length - 1];
+
+      // updated within 24 hours
+      const isNew =
+        lastMeta && lastMeta.updatedAt + 1000 * 60 * 60 * 24 > Date.now();
+
+      let syosutuLabel = "";
+      if (!currMeta) {
+        syosutuLabel = "Initializing...";
+      } else if (!currMeta.title) {
+        syosutuLabel = "Failed to initialize";
+      } else {
+        syosutuLabel =
+          (isNew ? "(new) " : "") + getLabelFromTitle(currMeta.title);
+      }
 
       const versionMenuItems: MenuItemConstructorOptions[] = [
         {
@@ -677,9 +726,12 @@ function createTrayMenu() {
             ? -1 // latest
             : i;
 
+        // change version
         versionMenuItems.push({
-          enabled: meta.id !== currMeta.id,
-          label: toTime(meta.updatedAt),
+          // enabled: meta.id !== currMeta.id,
+          label:
+            toTime(meta.updatedAt) +
+            (meta.id === currMeta.id ? " (selected) " : ""),
           click: () => {
             syosetu.metaIndex = index;
             syosetu.syncedAt = 0;
@@ -714,9 +766,9 @@ function createTrayMenu() {
         },
         { type: "separator" },
         {
-          label: `Force Update`,
+          label: `Re-Download`,
           click: () => {
-            forceUpdateChapters(syosetu).then(() => syncSyosetuAll());
+            forceUpdateChapters(syosetu);
           },
         },
         {
@@ -739,11 +791,7 @@ function createTrayMenu() {
       );
 
       syosetusMenuItems.push({
-        label: currMeta
-          ? currMeta.title
-            ? getLabelFromTitle(currMeta.title)
-            : "Failed to initialize"
-          : "Initializing...",
+        label: syosutuLabel,
         submenu: versionMenuItems,
       });
     }
@@ -766,14 +814,15 @@ function createTrayMenu() {
     {
       label: "Help",
       submenu: [
+        // {
+        //   visible: false,
+        //   enabled: false,
+        //   label: cookies.updatedAt
+        //     ? toTime(cookies.updatedAt)
+        //     : "Never updated",
+        // },
         {
-          visible: false,
-          enabled: false,
-          label: cookies.updatedAt
-            ? toTime(cookies.updatedAt)
-            : "Never updated",
-        },
-        {
+          // visible: false,
           enabled: false,
           label: cookies.syncedAt
             ? toTime(cookies.syncedAt)
@@ -782,9 +831,6 @@ function createTrayMenu() {
         {
           enabled: false,
           label: `${cookies.syosetus.length} syosetu`,
-        },
-        {
-          type: "separator",
         },
         {
           visible: false,
@@ -797,10 +843,6 @@ function createTrayMenu() {
             createDir(dirPath);
             shell.openPath(dirPath);
           },
-        },
-        {
-          visible: false,
-          type: "separator",
         },
         {
           visible: false,
@@ -817,7 +859,7 @@ function createTrayMenu() {
               return;
             }
 
-            if (process.env.NODE_ENV === "development") {
+            if (IS_DEV) {
               console.log("Change export directory:", cookies.outputDir);
             }
 
@@ -829,6 +871,9 @@ function createTrayMenu() {
             saveCookies();
             syncSyosetuAll();
           },
+        },
+        {
+          type: "separator",
         },
         {
           label: "Open Github",
