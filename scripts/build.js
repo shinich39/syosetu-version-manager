@@ -4,8 +4,17 @@ import path from "node:path";
 import fs from "node:fs";
 import { build, Platform } from "electron-builder";
 
-const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+const APP_ID = `com.shinich39.syosetuversionmanager`;
+const PRODUCT_NAME = "Syosetu Version Manager";
+const SCHEME = "syosetuversionmanager";
+const AUTHOR = "shinich39";
+const PUBLISH = {
+  "provider": "github",
+  "owner": "shinich39",
+  "repo": "syosetu-version-manager"
+}
 
 const targets = process.platform === "darwin" 
   ? Platform.MAC.createTarget()
@@ -16,24 +25,25 @@ const targets = process.platform === "darwin"
   : null;
 
 if (!targets) {
-  throw new Error(`Operating System not supported: ${process.platform}`);
+  console.error(new Error(`OS not supported: ${process.platform}`));
+  process.exit(1);
 }
 
 build({
   targets: targets,
   config: {
-    appId: app.appId,
-    productName: app.productName,
+    appId: APP_ID,
+    productName: PRODUCT_NAME,
     // artifactName: "${productName} ${version}.${ext}",
-    copyright: `Copyright © ${new Date().getFullYear()} ${app.author}`,
-    publish: app.publish,
-  
-    // Compress app directory to app.asar
+    copyright: `Copyright © ${new Date().getFullYear()} ${AUTHOR}`,
+    publish: PUBLISH,
+
+    // compress app directory to app.asar
     asar: true,
   
     protocols: {
-      name: app.productName,
-      schemes: [app.scheme],
+      name: PRODUCT_NAME,
+      schemes: [SCHEME],
     },
   
     compression: "normal",
@@ -49,7 +59,6 @@ build({
     files: [
       "bin/**/*",
       "src/**/*",
-      "app.json",
       "package.json",
       "node_modules/**/*",
       "LICENSE",
@@ -126,12 +135,12 @@ build({
       desktop: {
         StartupNotify: "false",
         Encoding: "UTF-8",
-        MimeType: `x-scheme-handler/${app.scheme}`
+        MimeType: `x-scheme-handler/${SCHEME}`
       },
       target: [
         "AppImage",
-        "rpm",
-        "deb"
+        // "rpm",
+        // "deb",
       ],
     },
     // deb: {
@@ -145,10 +154,8 @@ build({
   },
 })
 .then((result) => {
-  // string[]
   // console.log(JSON.stringify(result))
 })
 .catch((err) => {
-  // handle error
   console.error(err);
 });

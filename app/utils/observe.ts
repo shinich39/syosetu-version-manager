@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { api } from "./electron.js";
+import { api } from "./api.js";
 
 export function observeDir(dirPath: string) {
   fs.watch(

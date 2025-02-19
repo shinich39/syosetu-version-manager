@@ -1,5 +1,6 @@
 import { Menu, shell, Tray } from "electron";
-import { createImage, getAssetPath } from "./electron.js";
+import { createImage } from "./file.js";
+import { getAssetPath } from "./path.js";
 
 let tray: Tray | null = null;
 

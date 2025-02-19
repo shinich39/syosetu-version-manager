@@ -13,7 +13,7 @@ In development
 
 ### Usage
 
-1. Run syosetu-version-manager
+1. Run application
 2. Check tray icon
 3. Copy syosetu url for registration. (narou, kakuyomu, alphapolis, hameln)
 4. Right click on tray icon

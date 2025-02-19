@@ -1,30 +1,12 @@
 import {
   app,
-  BrowserWindow,
   clipboard,
   Menu,
-  MenuItem,
   MenuItemConstructorOptions,
-  Notification,
   shell,
-  Tray,
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import {
-  __dirname,
-  createDir,
-  createImage,
-  getAssetPath,
-  readJSON,
-  removeDir,
-  showAlert,
-  showNoti,
-  showOpenDir,
-  writeJSON,
-  writeText,
-} from "./utils/electron.js";
-import "./libs/menu.js";
 import _ from "lodash";
 import {
   close as closeNSD,
@@ -40,9 +22,17 @@ import { Cookies } from "./utils/cookie.js";
 import { isArray, isNumber, isObject, isString } from "utils-js";
 import { DateTime } from "luxon";
 import filenamify from "filenamify";
-import { checkForUpdates } from "./utils/update.js";
 import { Syosetu, SyosetuFile, SyosetuMeta } from "./models/syosetu.js";
 import { createTray, updateTray as udptTray } from "./utils/tray.js";
+import { showAlert, showNoti, showOpenDir } from "./utils/message.js";
+import {
+  createDir,
+  readJSON,
+  removeDir,
+  writeJSON,
+  writeText,
+} from "./utils/file.js";
+import { Update } from "./utils/update.js";
 
 const HOME_DIR = path.join(app.getPath("home"), ".syosetuvm");
 const MAX_LABEL_LENGTH = 20;
@@ -736,6 +726,7 @@ function createTrayMenu() {
       label: "Help",
       submenu: [
         {
+          visible: false,
           enabled: false,
           label: cookies.updatedAt
             ? toTime(cookies.updatedAt)
@@ -816,9 +807,9 @@ function createTrayMenu() {
 
 app.whenReady().then(() => {
   createTray(createTrayMenu());
-  checkForUpdates();
-
   // app.on("activate", () => {});
+
+  Update.github("shinich39", "syosetu-version-manager");
 });
 
 app.on("window-all-closed", () => {

@@ -1,7 +1,7 @@
 import { app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import { readJSON, writeJSON } from "./electron.js";
+import { readJSON, writeJSON } from "./file.js";
 import { Syosetu } from "../models/syosetu.js";
 
 const COOKIE_PATH = path.join(app.getPath("sessionData"), "POSCookies");
@@ -10,15 +10,15 @@ const COOKIE_PATH = path.join(app.getPath("sessionData"), "POSCookies");
 export interface ICookies {
   syosetus: Syosetu[];
   outputDir: string;
-  syncedAt: number;
   updatedAt: number;
+  syncedAt: number;
   [key: string]: any;
 }
 
 export class Cookies implements ICookies {
+  syosetus: Syosetu[];
   updatedAt: number;
   syncedAt: number;
-  syosetus: Syosetu[];
   outputDir: string;
   [key: string]: any;
 

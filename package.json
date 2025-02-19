@@ -40,7 +40,7 @@
     "filenamify": "^6.0.0",
     "lodash": "^4.17.21",
     "luxon": "^3.5.0",
-    "node-git-sync": "github:shinich39/node-git-sync",
+    "node-github-sync": "github:shinich39/node-github-sync",
     "node-syosetu-downloader": "github:shinich39/node-syosetu-downloader",
     "utils-js": "github:shinich39/utils-js",
     "uuid": "^11.0.5",
