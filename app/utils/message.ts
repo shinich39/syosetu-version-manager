@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   MessageBoxOptions,
+  NativeImage,
   Notification,
   OpenDialogOptions,
   SaveDialogOptions,
@@ -137,6 +138,16 @@ export async function showSaveFile(options?: SaveDialogOptions | null) {
   return filePath;
 }
 
-export function showNoti(title?: string, body?: string) {
-  new Notification({ title, body }).show();
+export function showNoti(
+  body?: string | null,
+  title?: string | null,
+  icon?: string | NativeImage | null
+) {
+  const noti = new Notification({
+    title: title || undefined,
+    body: body || undefined,
+    icon: icon || undefined,
+  });
+  noti.show();
+  return noti;
 }

@@ -7,7 +7,6 @@ import { build, Platform } from "electron-builder";
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
 const APP_ID = `com.shinich39.syosetuversionmanager`;
-const PRODUCT_NAME = "Syosetu Version Manager";
 const SCHEME = "syosetuversionmanager";
 const AUTHOR = "shinich39";
 const PUBLISH = {
@@ -29,11 +28,14 @@ if (!targets) {
   process.exit(1);
 }
 
+/**
+* @see https://www.electron.build/configuration
+*/
 build({
   targets: targets,
   config: {
     appId: APP_ID,
-    productName: PRODUCT_NAME,
+    // productName: pkg.productName,
     // artifactName: "${productName} ${version}.${ext}",
     copyright: `Copyright © ${new Date().getFullYear()} ${AUTHOR}`,
     publish: PUBLISH,
@@ -41,10 +43,10 @@ build({
     // compress app directory to app.asar
     asar: true,
   
-    protocols: {
-      name: PRODUCT_NAME,
-      schemes: [SCHEME],
-    },
+    // protocols: {
+    //   name: pkg.productName,
+    //   schemes: [SCHEME],
+    // },
   
     compression: "normal",
     removePackageScripts: true,
@@ -100,7 +102,7 @@ build({
         "dmg",
       ],
       hardenedRuntime: true,
-      gatekeeperAssess: true,
+      gatekeeperAssess: false,
       // extendInfo: {
       //   NSAppleEventsUsageDescription: 'Let me use Apple Events.',
       //   NSCameraUsageDescription: 'Let me use the camera.',

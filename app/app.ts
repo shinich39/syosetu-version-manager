@@ -34,6 +34,12 @@ import {
 } from "./utils/file.js";
 import { Update } from "./utils/update.js";
 import { getBorderCharacters, table } from "table";
+import { getAssetPath } from "./utils/path.js";
+
+// fix windows app id
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.shinich39.syosetuversionmanager");
+}
 
 const HOME_DIR = path.join(app.getPath("home"), ".syosetuvm");
 const MAX_LABEL_LENGTH = 20;
@@ -833,7 +839,7 @@ app.whenReady().then(() => {
       tray.popUpContextMenu();
     }, 39);
   });
-  
+
   // app.on("activate", () => {});
 
   Update.github("shinich39", "syosetu-version-manager");

@@ -7,7 +7,6 @@ import { app } from "electron";
 import { compareVersions, isError, isVersion } from "utils-js";
 import { showConfirm } from "./message.js";
 import { getWindow, getWindows } from "./window.js";
-import { getPath } from "./path.js";
 
 function validateOS() {
   switch (process.platform) {
@@ -17,18 +16,6 @@ function validateOS() {
       return true;
   }
   return false;
-}
-
-function getVersion(): string | undefined {
-  const pkgPath = getPath("../package.json");
-  if (!fs.existsSync(pkgPath)) {
-    return;
-  }
-
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-  if (isVersion(pkg.version)) {
-    return pkg.version;
-  }
 }
 
 function getLatestFileName() {
@@ -51,9 +38,8 @@ function runAfterQuit(filePath: string) {
       command = "open";
       break;
     case "win32":
-      command = "start";
-      // empty string prevents issues with `start`
-      args = ["", filePath];
+      command = "cmd";
+      args = ["/c", "start", '""', filePath];
       break;
     case "linux":
       command = "xdg-open";
@@ -80,7 +66,7 @@ export class Update {
         throw new Error(`OS not supported: ${process.platform}`);
       }
 
-      const currentVersion = getVersion();
+      const currentVersion = app.getVersion();
       if (!currentVersion) {
         throw new Error(`Version not found`);
       }
