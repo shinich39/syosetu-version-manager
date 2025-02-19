@@ -33,6 +33,7 @@ import {
   writeText,
 } from "./utils/file.js";
 import { Update } from "./utils/update.js";
+import { getBorderCharacters, table } from "table";
 
 const HOME_DIR = path.join(app.getPath("home"), ".syosetuvm");
 const MAX_LABEL_LENGTH = 20;
@@ -133,20 +134,16 @@ function getLibSyosetuPath(provider: string, bookId: string) {
   return path.join(getLibPath(), provider, convertFileName(bookId));
 }
 
-function getLibSyosetuMetaPath(provider: string, bookId: string) {
-  return path.join(getLibPath(), provider, convertFileName(bookId), "0.txt");
-}
-
 function getLibSyosetuFilePath(
   provider: string,
   syosetuTitle: string,
-  seq: number
+  fileName: string
 ) {
   return path.join(
     getLibPath(),
     provider,
     convertFileName(syosetuTitle),
-    seq + ".txt"
+    convertFileName(fileName) + ".txt"
   );
 }
 
@@ -159,7 +156,7 @@ function getSyosetuMetaPath(provider: string, bookId: string, metaId: string) {
     HOME_DIR,
     provider,
     convertFileName(bookId),
-    metaId + ".json"
+    convertFileName(metaId) + ".json"
   );
 }
 
@@ -519,39 +516,63 @@ function syncSyosetu(syosetu: Syosetu) {
   // clear directory
   removeDir(libPath);
 
+  let texts = [];
   // create info file
   (() => {
-    const filePath = getLibSyosetuMetaPath(provider, bookId);
-    let info = "";
-    info += `URL=${syosetu.url}\n`;
-    info += `TITLE=${meta.title}\n`;
-    info += `AUTHOR=${meta.author}\n`;
-    info += `IS_COMPLETED=${!meta.onGoing ? "Yes" : "No"}\n`;
-    info += `NUMBER_OF_CHAPTERS=${meta.chapterIds.length}\n`;
-    info += `CREATED_AT=${toTime(meta.createdAt)}\n`;
-    info += `UPDATED_AT=${toTime(meta.updatedAt)}\n`;
-    info += `OUTLINE=\n${meta.outline}\n`;
-    writeText(filePath, info);
+    const filePath = getLibSyosetuFilePath(provider, bookId, "0");
+    const data = table(
+      [
+        ["URL", syosetu.url],
+        ["TITLE", meta.title],
+        ["AUTHOR", meta.author],
+        ["COMPLETE", !meta.onGoing ? "Yes" : "No"],
+        ["NUMBER_OF_CHAPTERS", "" + meta.chapterIds.length],
+        ["CREATED", toTime(meta.createdAt)],
+        ["UPDATED", toTime(meta.updatedAt)],
+        ["OUTLINE", meta.outline],
+      ],
+      {
+        border: getBorderCharacters("void"),
+        columns: [{}, { width: 100 }],
+        // drawHorizontalLine: () => false,
+        // drawVerticalLine: () => false,
+      }
+    );
+
+    texts.push(data);
+
+    writeText(filePath, data);
   })();
 
   // create txt files
   for (let i = 0; i < meta.chapterIds.length; i++) {
     const chapterId = meta.chapterIds[i];
     const chapterFile = syosetu.files.find((file) => file.id === chapterId);
-    const txtPath = getLibSyosetuFilePath(provider, bookId, i + 1);
+    const txtPath = getLibSyosetuFilePath(provider, bookId, "" + (i + 1));
     const chapter = chapterFile
       ? (readJSON(chapterFile.path) as IChapter | undefined)
       : undefined;
 
-    let txtData = "";
+    let data = "";
     if (!chapter) {
-      txtData = "FILE NOT FOUND";
+      data = "FILE NOT FOUND";
     } else {
-      txtData = `${chapter.title}\n\n${chapter.content}`;
+      data = `${chapter.title}\n\n\n${chapter.content}`;
+      texts.push(data);
     }
 
-    writeText(txtPath, txtData);
+    writeText(txtPath, data);
   }
+
+  // create joined txt file
+  (() => {
+    const filePath = getLibSyosetuFilePath(
+      provider,
+      bookId,
+      `[${meta.author}] ${meta.title}`
+    );
+    writeText(filePath, texts.join("\n\n\n"));
+  })();
 
   return isSynced;
 }
@@ -806,7 +827,12 @@ function createTrayMenu() {
 }
 
 app.whenReady().then(() => {
-  createTray(createTrayMenu());
+  const tray = createTray(createTrayMenu());
+  tray.on("click", (e) => {
+    setTimeout(() => {
+      tray.popUpContextMenu();
+    }, 39);
+  });
   // app.on("activate", () => {});
 
   Update.github("shinich39", "syosetu-version-manager");

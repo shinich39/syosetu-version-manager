@@ -42,6 +42,7 @@
     "luxon": "^3.5.0",
     "node-github-sync": "github:shinich39/node-github-sync",
     "node-syosetu-downloader": "github:shinich39/node-syosetu-downloader",
+    "table": "^6.9.0",
     "utils-js": "github:shinich39/utils-js",
     "uuid": "^11.0.5",
     "yaml": "^2.7.0"
