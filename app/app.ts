@@ -67,13 +67,20 @@ if (process.platform === "darwin") {
 // create observer
 createClipboardObserver();
 
-setInterval(
-  () => {
-    updateSyosetuAll().then(() => syncSyosetuAll());
-  },
-  // 3 hours
-  1000 * 60 * 60 * 3
-);
+(() => {
+  let updatedAt = 0;
+  setInterval(
+    () => {
+      // 3 hours
+      if (updatedAt + 1000 * 60 * 60 * 3 < Date.now()) {
+        updatedAt = Date.now();
+        updateSyosetuAll().then(() => syncSyosetuAll());
+      }
+    },
+    // 1 min
+    1000 * 60 * 60
+  );
+})();
 
 // validate cookies
 (() => {
@@ -417,6 +424,7 @@ async function updateSyosetuAll() {
   updateTray();
 
   if (execUpdate) {
+    execUpdate = false;
     await updateSyosetuAll();
   } else {
     // close browser
@@ -614,9 +622,12 @@ async function syncSyosetuAll() {
   updateTray();
 
   if (execUpdate) {
+    execUpdate = false;
+    execSync = false;
     await updateSyosetuAll();
     await syncSyosetuAll();
   } else if (execSync) {
+    execSync = false;
     await syncSyosetuAll();
   }
 
