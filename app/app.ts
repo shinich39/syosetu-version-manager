@@ -41,7 +41,7 @@ if (process.platform === "win32") {
 }
 
 const HOME_DIR = path.join(app.getPath("home"), ".syosetuvm");
-const MAX_LABEL_LENGTH = 20;
+const MAX_LABEL_LENGTH = 39;
 const PROVIDER_NAMES: Record<string, string> = {
   narou: "小説家になろう",
   kakuyomu: "カクヨム",
@@ -728,7 +728,11 @@ function createTrayMenu() {
       );
 
       syosetusMenuItems.push({
-        label: currMeta ? getLabelFromTitle(currMeta.title) : "ERROR",
+        label: currMeta
+          ? currMeta.title
+            ? getLabelFromTitle(currMeta.title)
+            : "Failed to initialize"
+          : "Initializing...",
         submenu: versionMenuItems,
       });
     }
