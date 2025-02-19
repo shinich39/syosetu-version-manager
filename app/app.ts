@@ -34,7 +34,6 @@ import {
 } from "./utils/file.js";
 import { Update } from "./utils/update.js";
 import { getBorderCharacters, table } from "table";
-import { getAssetPath } from "./utils/path.js";
 
 // fix windows app id
 if (process.platform === "win32") {
@@ -262,9 +261,9 @@ function parseClipboard(text: string) {
   }
 
   if (process.env.NODE_ENV === "development") {
-    console.log(`${addedCount} url(s) added.`);
+    console.log(`${addedCount} syosetu added.`);
   } else if (addedCount > 0) {
-    showNoti(`${addedCount} url(s) added.`);
+    showNoti(`${addedCount} syosetu added.`);
   }
 
   updateTray();
