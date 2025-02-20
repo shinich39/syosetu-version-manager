@@ -57,6 +57,12 @@ const PROVIDER_NAMES: Record<string, string> = {
   hameln: "ハーメルン",
 };
 
+const ENTITIES = {
+  UPDATED: "(new)",
+  COMPLETED: "(completed)",
+  SELECTED: "(selected)",
+};
+
 let cookies = new Cookies(),
   inProgress = false,
   execSync = false,
@@ -633,18 +639,20 @@ function createTrayMenu() {
       const isCompleted = syosetu.completedAt;
 
       // updated within 24 hours
-      const isNew =
+      const isUpdated =
         lastMeta && lastMeta.updatedAt + 1000 * 60 * 60 * 24 > Date.now();
 
       let syosutuLabel = "";
       if (!currMeta) {
         syosutuLabel = "Initializing...";
       } else if (!currMeta.title) {
-        syosutuLabel = "Failed to initialize";
-      } else if (isNew) {
-        syosutuLabel = "(new) " + getLabelFromTitle(currMeta.title);
+        syosutuLabel = "Failed to initialize!";
+      } else if (isUpdated) {
+        syosutuLabel =
+          `${ENTITIES.UPDATED} ` + getLabelFromTitle(currMeta.title);
       } else if (isCompleted) {
-        syosutuLabel = "(end) " + getLabelFromTitle(currMeta.title);
+        syosutuLabel =
+          `${ENTITIES.COMPLETED} ` + getLabelFromTitle(currMeta.title);
       } else {
         syosutuLabel = getLabelFromTitle(currMeta.title);
       }
@@ -652,9 +660,13 @@ function createTrayMenu() {
       const versionMenuItems: MenuItemConstructorOptions[] = [
         {
           enabled: false,
-          label: syosetu.syncedAt
-            ? toTime(syosetu.syncedAt)
-            : "Never sychronized",
+          label: "Last updated on",
+        },
+        {
+          enabled: false,
+          label: syosetu.updatedAt
+            ? toTime(syosetu.updatedAt)
+            : "Never updated",
         },
         {
           enabled: false,
@@ -683,7 +695,7 @@ function createTrayMenu() {
           // enabled: meta.id !== currMeta.id,
           label:
             toTime(meta.updatedAt) +
-            (meta.id === currMeta.id ? " (selected) " : ""),
+            (meta.id === currMeta.id ? ` ${ENTITIES.SELECTED}` : ""),
           click: () => {
             syosetu.metaIndex = index;
             syosetu.syncedAt = 0;
@@ -760,20 +772,26 @@ function createTrayMenu() {
     {
       label: "Help",
       submenu: [
-        // {
-        //   visible: false,
-        //   enabled: false,
-        //   label: cookies.updatedAt
-        //     ? toTime(cookies.updatedAt)
-        //     : "Never updated",
-        // },
+        {
+          enabled: false,
+          label: "Last updated on",
+        },
         {
           // visible: false,
           enabled: false,
-          label: cookies.syncedAt
-            ? toTime(cookies.syncedAt)
-            : "Never synchronized",
+          label: cookies.updatedAt
+            ? toTime(cookies.updatedAt)
+            : "Never updated",
         },
+
+        // {
+        //   visible: false,
+        //   enabled: false,
+        //   label: cookies.syncedAt
+        //     ? toTime(cookies.syncedAt)
+        //     : "Never synchronized",
+        // },
+
         {
           enabled: false,
           label: `${cookies.syosetus.length} syosetu`,
@@ -792,7 +810,7 @@ function createTrayMenu() {
         },
         {
           visible: false,
-          label: "Change Directory",
+          label: "Change directory",
           click: async (menuItem, baseWindow, event) => {
             const dirPath = await showOpenDir({
               title: "Select an export directory",
@@ -822,7 +840,7 @@ function createTrayMenu() {
           type: "separator",
         },
         {
-          label: "Export",
+          label: "Export syosetu list",
           click: async () => {
             const filePath = await showSaveFile({
               title: "Export syosetu list as txt file",
@@ -851,7 +869,7 @@ function createTrayMenu() {
           type: "separator",
         },
         {
-          label: "Open Github",
+          label: "About",
           // accelerator: "Ctrl + H",
           click: async () => {
             await shell.openExternal(
