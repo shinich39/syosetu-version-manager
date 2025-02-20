@@ -5,6 +5,7 @@ In development
 ## Features
 
 - Download registered syosetu data.
+- Multiple URLs can be registered.
 - You can change syosetu version to previous version. (like a snapshot)
 - Check for updates when running the application.
 - Checks for updates every 3 hours while the application is running.
@@ -19,14 +20,14 @@ In development
 4. Any provider > Any syosetu > Open in Finder/File Explorer
 5. Read txt files
 
-### Library
+#### Library
 
 Library directory is "/Users/YOUR_NAME/Syosetu Library/"
 
-### Re-Download
+#### Syosetu episode has been edited
 
 Syosetu does not apply edits after downloading.  
-Click the Re-Download button to apply edits.  
+Re-regist after removing syosetu.  
 
 ## Acknowledgements
 

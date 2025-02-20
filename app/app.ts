@@ -24,7 +24,12 @@ import { DateTime } from "luxon";
 import filenamify from "filenamify";
 import { Syosetu, SyosetuFile, SyosetuMeta } from "./models/syosetu.js";
 import { createTray, updateTray as udptTray } from "./utils/tray.js";
-import { showAlert, showNoti, showOpenDir } from "./utils/message.js";
+import {
+  showAlert,
+  showNoti,
+  showOpenDir,
+  showSaveFile,
+} from "./utils/message.js";
 import {
   createDir,
   readJSON,
@@ -169,7 +174,7 @@ function getSyosetuMetaPath(provider: string, bookId: string, metaId: string) {
     HOME_DIR,
     provider,
     convertFileName(bookId),
-    convertFileName(metaId) + ".json"
+    "(" + convertFileName(metaId) + ").json"
   );
 }
 
@@ -263,6 +268,7 @@ function parseClipboard(text: string) {
       createdAt: Date.now(),
       updatedAt: 0,
       removedAt: 0,
+      completedAt: 0,
       syncedAt: 0,
     };
 
@@ -288,6 +294,15 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
   const bookId = syosetu.id;
   const lastMeta = metas[metas.length - 1];
 
+  if (syosetu.completedAt) {
+    if (IS_DEV) {
+      console.log(
+        `Completed syosetu will not be updated: ${provider}/${bookId}`
+      );
+    }
+    return isUpdated;
+  }
+
   if (syosetu.removedAt) {
     if (IS_DEV) {
       console.log(`Removed syosetu will not be updated: ${provider}/${bookId}`);
@@ -305,14 +320,22 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
   try {
     // download latest meta and compare it to previous meta
     const latestMeta = await getMetadata(provider, bookId);
+    const metaId = "" + latestMeta.updatedAt;
+
+    // save meta
+    const metaPath = getSyosetuMetaPath(provider, bookId, metaId);
+    if (!fs.existsSync(metaPath)) {
+      writeJSON(metaPath, latestMeta);
+    }
+
+    // check completed
+    if (!latestMeta.onGoing) {
+      syosetu.completedAt = latestMeta.updatedAt;
+    }
 
     // sync after update
     isUpdated = !lastMeta || lastMeta.updatedAt !== latestMeta.updatedAt;
     if (isUpdated) {
-      const metaId = "_" + latestMeta.updatedAt;
-      const metaPath = getSyosetuMetaPath(provider, bookId, metaId);
-      writeJSON(metaPath, latestMeta);
-
       const prevMeta = syosetu.metas.find((meta) => meta.id === metaId);
       if (!prevMeta) {
         const newMeta: SyosetuMeta = {
@@ -458,82 +481,6 @@ async function updateSyosetuAll(force?: boolean) {
   return updatedCount;
 }
 
-async function forceUpdateChapters(syosetu: Syosetu) {
-  if (inProgress) {
-    showAlert(
-      "Another process is running. Wait until it completes and try again.",
-      null,
-      null,
-      { type: "warning" }
-    );
-    return;
-  }
-  if (syosetu.removedAt) {
-    showAlert("Removed syosetu cannot be downloaded.", null, null, {
-      type: "warning",
-    });
-    return;
-  }
-
-  inProgress = true;
-  updateTray();
-
-  const { provider } = syosetu;
-  const bookId = syosetu.id;
-
-  // sync after update
-  syosetu.syncedAt = 0;
-
-  // download and write chapters
-  for (const file of syosetu.files) {
-    const chapterId = file.id;
-
-    if (file.removedAt) {
-      console.error(
-        `Removed chapters will not be download: ${provider}/${bookId}/${chapterId}`
-      );
-      continue;
-    }
-
-    try {
-      const filePath = getSyosetuFilePath(provider, bookId, chapterId);
-      const fileData = await getChapter(provider, bookId, chapterId);
-
-      // overwrite chapter file
-      writeJSON(filePath, fileData);
-
-      file.updatedAt = Date.now();
-    } catch (err) {
-      if (isError(err) && err.status === 404) {
-        console.error(
-          `Chapter has been removed: ${provider}/${bookId}/${chapterId}`
-        );
-        file.removedAt = Date.now();
-      } else {
-        console.error(
-          `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
-        );
-      }
-    }
-  }
-
-  try {
-    syncSyosetu(syosetu);
-  } catch (err) {
-    console.error(err);
-  }
-
-  inProgress = false;
-  cookies.write();
-  updateTray();
-
-  if (execUpdate) {
-    updateSyosetuAll().then(syncSyosetuAll);
-  } else if (execSync) {
-    syncSyosetuAll();
-  }
-}
-
 function syncSyosetu(syosetu: Syosetu) {
   const provider = syosetu.provider;
   const bookId = syosetu.id;
@@ -546,13 +493,14 @@ function syncSyosetu(syosetu: Syosetu) {
     return false;
   }
 
-  // read meta.json
   const currMeta = getCurrentMeta(syosetu);
-  const meta = currMeta
-    ? (readJSON(currMeta.path) as IMeta | undefined)
-    : undefined;
+  if (!currMeta) {
+    return false;
+  }
 
-  if (!meta) {
+  // read meta.json
+  const currMetaData = readJSON(currMeta.path) as IMeta | undefined;
+  if (!currMetaData) {
     return false;
   }
 
@@ -566,13 +514,13 @@ function syncSyosetu(syosetu: Syosetu) {
     const data = table(
       [
         ["URL", syosetu.url],
-        ["TITLE", meta.title],
-        ["AUTHOR", meta.author],
-        ["COMPLETE", !meta.onGoing ? "Yes" : "No"],
-        ["NUMBER_OF_CHAPTERS", "" + meta.chapterIds.length],
-        ["CREATED", toTime(meta.createdAt)],
-        ["UPDATED", toTime(meta.updatedAt)],
-        ["OUTLINE", meta.outline],
+        ["TITLE", currMetaData.title],
+        ["AUTHOR", currMetaData.author],
+        ["COMPLETE", !currMetaData.onGoing ? "Yes" : "No"],
+        ["NUMBER_OF_CHAPTERS", "" + currMetaData.chapterIds.length],
+        ["CREATED", toTime(currMetaData.createdAt)],
+        ["UPDATED", toTime(currMetaData.updatedAt)],
+        ["OUTLINE", currMetaData.outline],
       ],
       {
         border: getBorderCharacters("void"),
@@ -588,8 +536,8 @@ function syncSyosetu(syosetu: Syosetu) {
   })();
 
   // create txt files
-  for (let i = 0; i < meta.chapterIds.length; i++) {
-    const chapterId = meta.chapterIds[i];
+  for (let i = 0; i < currMetaData.chapterIds.length; i++) {
+    const chapterId = currMetaData.chapterIds[i];
     const chapterFile = syosetu.files.find((file) => file.id === chapterId);
     const txtPath = getLibSyosetuFilePath(provider, bookId, "" + (i + 1));
     const chapter = chapterFile
@@ -612,7 +560,7 @@ function syncSyosetu(syosetu: Syosetu) {
     const filePath = getLibSyosetuFilePath(
       provider,
       bookId,
-      `[${meta.author}] ${meta.title}`
+      `[${currMetaData.author}] ${currMetaData.title}`
     );
     writeText(filePath, texts.join("\n\n\n"));
   })();
@@ -682,6 +630,7 @@ function createTrayMenu() {
       const currMeta = getCurrentMeta(syosetu);
       const [startIndex, endIndex] = getCurrentMetaRange(syosetu, 5);
       const lastMeta = syosetu.metas[syosetu.metas.length - 1];
+      const isCompleted = syosetu.completedAt;
 
       // updated within 24 hours
       const isNew =
@@ -692,9 +641,12 @@ function createTrayMenu() {
         syosutuLabel = "Initializing...";
       } else if (!currMeta.title) {
         syosutuLabel = "Failed to initialize";
+      } else if (isNew) {
+        syosutuLabel = "(new) " + getLabelFromTitle(currMeta.title);
+      } else if (isCompleted) {
+        syosutuLabel = "(end) " + getLabelFromTitle(currMeta.title);
       } else {
-        syosutuLabel =
-          (isNew ? "(new) " : "") + getLabelFromTitle(currMeta.title);
+        syosutuLabel = getLabelFromTitle(currMeta.title);
       }
 
       const versionMenuItems: MenuItemConstructorOptions[] = [
@@ -765,12 +717,6 @@ function createTrayMenu() {
           },
         },
         { type: "separator" },
-        {
-          label: `Re-Download`,
-          click: () => {
-            forceUpdateChapters(syosetu);
-          },
-        },
         {
           label: `Remove`,
           click: () => {
@@ -870,6 +816,35 @@ function createTrayMenu() {
 
             saveCookies();
             syncSyosetuAll();
+          },
+        },
+        {
+          type: "separator",
+        },
+        {
+          label: "Export",
+          click: async () => {
+            const filePath = await showSaveFile({
+              title: "Export syosetu list as txt file",
+              defaultPath: path.join(
+                app.getPath("downloads"),
+                "Syosetu List.txt"
+              ),
+            });
+
+            if (!filePath) {
+              return;
+            }
+
+            const data = cookies.syosetus
+              .map((syosetu) => {
+                const meta = getCurrentMeta(syosetu);
+                const title = meta?.title || "Initializing...";
+                return title + "\n" + syosetu.url;
+              })
+              .join("\n\n");
+
+            writeText(filePath, data);
           },
         },
         {

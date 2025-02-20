@@ -9,6 +9,7 @@ export interface Syosetu {
   files: SyosetuFile[];
   createdAt: number;
   updatedAt: number;
+  completedAt: number;
   removedAt: number;
   syncedAt: number;
 }
