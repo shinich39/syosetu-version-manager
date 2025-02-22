@@ -1,6 +1,6 @@
 # syosetu-version-manager
 
-In development
+In testing
 
 ## Features
 
@@ -15,19 +15,26 @@ In development
 ### Usage
 
 1. Run application
-2. Copy syosetu url for registration. (narou, kakuyomu, alphapolis, hameln)
+2. Copy syosetu url for registration.
 3. Click on tray icon
 4. Any provider > Any syosetu > Open in Finder/File Explorer
 5. Read txt files
 
-#### Library
+### Supported sites
+
+- [小説家になろう](https://syosetu.com/)
+- [カクヨム](https://kakuyomu.jp/)
+- [アルファポリス](https://www.alphapolis.co.jp/)
+- [ハーメルン](https://syosetu.org/)
+
+### Library
 
 Library directory is "/Users/YOUR_NAME/Syosetu Library/"
 
-#### Syosetu episode has been edited
+### Applying changes
 
-Syosetu does not apply edits after downloading.  
-Re-regist after removing syosetu.  
+Syosetu does not apply changes after downloading.  
+Remove syosetu and add it again.  
 
 ## Acknowledgements
 
