@@ -1,7 +1,7 @@
 {
   "name": "syosetu-version-manager",
   "productName": "Syosetu Version Manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "mikumiku",
   "main": "bin/app.js",
   "type": "module",
@@ -9,7 +9,6 @@
     "start": "npm run lint && npm run prettier && npm run compile && npm run start:dev",
     "start:prod": "electron .",
     "start:dev": "cross-env NODE_ENV=development electron .",
-    "commit": "node scripts/commit.js",
     "test": "tsx --test \"**/*.test.{js,jsx,ts,tsx}\"",
     "build": "npm run lint && npm run prettier && npm run compile && node scripts/build.js",
     "compile": "node scripts/compile.js",
@@ -24,6 +23,8 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "@types/lodash": "^4.17.16",
+    "@types/luxon": "^3.4.2",
     "@types/node": "^22.13.0",
     "cross-env": "^7.0.3",
     "electron": "^34.2.0",
@@ -36,8 +37,6 @@
     "typescript-eslint": "^8.22.0"
   },
   "dependencies": {
-    "@types/lodash": "^4.17.15",
-    "@types/luxon": "^3.4.2",
     "filenamify": "^6.0.0",
     "lodash": "^4.17.21",
     "luxon": "^3.5.0",
