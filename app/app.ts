@@ -19,7 +19,15 @@ import {
   setCacheDir,
 } from "node-syosetu-downloader";
 import { Cookies } from "./utils/cookie.js";
-import { generateRandomNumber, isArray, isError, isNumber, isObject, isString, wait } from "utils-js";
+import {
+  generateRandomNumber,
+  isArray,
+  isError,
+  isNumber,
+  isObject,
+  isString,
+  wait,
+} from "utils-js";
 import { DateTime } from "luxon";
 import filenamify from "filenamify";
 import { Syosetu, SyosetuFile, SyosetuMeta } from "./models/syosetu.js";

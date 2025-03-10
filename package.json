@@ -6,9 +6,8 @@
   "main": "bin/app.js",
   "type": "module",
   "scripts": {
-    "start": "npm run lint && npm run prettier && npm run compile && npm run start:dev",
-    "start:prod": "electron .",
-    "start:dev": "cross-env NODE_ENV=development electron .",
+    "prod": "electron .",
+    "dev": "npm run lint && npm run prettier && npm run compile && cross-env NODE_ENV=development electron .",
     "test": "tsx --test \"**/*.test.{js,jsx,ts,tsx}\"",
     "build": "npm run lint && npm run prettier && npm run compile && node scripts/build.js",
     "compile": "node scripts/compile.js",
