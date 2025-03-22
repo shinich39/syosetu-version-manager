@@ -69,6 +69,7 @@ const ENTITIES = {
   UPDATED: "(new)",
   COMPLETED: "(completed)",
   SELECTED: "(selected)",
+  ERRORED: "(error)",
 };
 
 let cookies = new Cookies(),
@@ -283,6 +284,7 @@ function parseClipboard(text: string) {
       updatedAt: 0,
       removedAt: 0,
       completedAt: 0,
+      erroredAt: 0,
       syncedAt: 0,
     };
 
@@ -330,6 +332,9 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     }
     return isUpdated;
   }
+
+  // reset erroredAt
+  syosetu.erroredAt = 0;
 
   try {
     // download latest meta and compare it to previous meta
@@ -392,6 +397,7 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
       syosetu.removedAt = Date.now();
     } else {
       console.error(`Metadata Fetch Error: ${provider}/${bookId}`);
+      syosetu.erroredAt = Date.now();
     }
     // skip file update
     return isUpdated;
@@ -428,6 +434,7 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
         console.error(
           `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
         );
+        syosetu.erroredAt = Date.now();
       }
     }
 
@@ -651,6 +658,7 @@ function createTrayMenu() {
       const [startIndex, endIndex] = getCurrentMetaRange(syosetu, 5);
       const lastMeta = syosetu.metas[syosetu.metas.length - 1];
       const isCompleted = syosetu.completedAt;
+      const isErrored = syosetu.erroredAt;
 
       // updated within 24 hours
       const isUpdated =
@@ -661,6 +669,9 @@ function createTrayMenu() {
         syosutuLabel = "Initializing...";
       } else if (!currMeta.title) {
         syosutuLabel = "Failed to initialize!";
+      } else if (isErrored) {
+        syosutuLabel =
+          `${ENTITIES.ERRORED} ` + getLabelFromTitle(currMeta.title);
       } else if (isUpdated) {
         syosutuLabel =
           `${ENTITIES.UPDATED} ` + getLabelFromTitle(currMeta.title);
@@ -854,7 +865,7 @@ function createTrayMenu() {
           type: "separator",
         },
         {
-          label: "Export syosetu list",
+          label: "Export",
           click: async () => {
             const filePath = await showSaveFile({
               title: "Export syosetu list as txt file",

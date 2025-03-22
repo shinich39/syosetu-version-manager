@@ -44,7 +44,7 @@ export function createTray(menu?: Electron.Menu) {
   );
 
   const newTray = new Tray(trayIcon);
-  // newTray.setToolTip("This is my application.");
+  newTray.setToolTip("Syosetu Version Manager");
   newTray.setContextMenu(menu || createTrayMenu());
 
   tray = newTray;

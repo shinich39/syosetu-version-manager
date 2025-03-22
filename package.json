@@ -1,7 +1,7 @@
 {
   "name": "syosetu-version-manager",
   "productName": "Syosetu Version Manager",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "mikumiku",
   "main": "bin/app.js",
   "type": "module",

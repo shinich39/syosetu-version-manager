@@ -10,6 +10,7 @@ export interface Syosetu {
   createdAt: number;
   updatedAt: number;
   completedAt: number;
+  erroredAt: number;
   removedAt: number;
   syncedAt: number;
 }
