@@ -310,6 +310,9 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
   const bookId = syosetu.id;
   const lastMeta = metas[metas.length - 1];
 
+  // reset erroredAt
+  syosetu.erroredAt = 0;
+
   if (syosetu.completedAt) {
     if (IS_DEV) {
       console.log(
@@ -332,9 +335,6 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     }
     return isUpdated;
   }
-
-  // reset erroredAt
-  syosetu.erroredAt = 0;
 
   try {
     // download latest meta and compare it to previous meta
@@ -439,7 +439,7 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     }
 
     // delay
-    await wait(512 * generateRandomNumber(1, 2));
+    await wait(512 * generateRandomNumber(2, 4));
   }
 
   return isUpdated;
@@ -484,7 +484,7 @@ async function updateSyosetuAll(force?: boolean) {
     }
 
     // delay
-    await wait(512 * generateRandomNumber(1, 2));
+    await wait(512 * generateRandomNumber(2, 4));
   }
 
   if (IS_DEV) {
@@ -543,7 +543,7 @@ function syncSyosetu(syosetu: Syosetu) {
         ["URL", syosetu.url],
         ["TITLE", currMetaData.title],
         ["AUTHOR", currMetaData.author],
-        ["COMPLETE", !currMetaData.onGoing ? "Yes" : "No"],
+        ["COMPLETE", !currMetaData.onGoing ? "YES" : "NO"],
         ["NUMBER_OF_CHAPTERS", "" + currMetaData.chapterIds.length],
         ["CREATED", toTime(currMetaData.createdAt)],
         ["UPDATED", toTime(currMetaData.updatedAt)],
@@ -847,7 +847,6 @@ function createTrayMenu() {
             if (cookies.outputDir === dirPath) {
               return;
             }
-
             if (IS_DEV) {
               console.log("Change export directory:", cookies.outputDir);
             }
@@ -865,7 +864,7 @@ function createTrayMenu() {
           type: "separator",
         },
         {
-          label: "Export",
+          label: "Export List",
           click: async () => {
             const filePath = await showSaveFile({
               title: "Export syosetu list as txt file",
