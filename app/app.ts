@@ -47,6 +47,9 @@ import {
 } from "./utils/file.js";
 import { Update } from "./utils/update.js";
 import { getBorderCharacters, table } from "table";
+import winston from "winston";
+import DailyRotateFile from "winston-daily-rotate-file";
+const { createLogger, format, transports } = winston;
 
 // fix windows app id
 if (process.platform === "win32") {
@@ -79,6 +82,27 @@ let cookies = new Cookies(),
   clipboardObserver: NodeJS.Timeout | null = null,
   prevClipboard = clipboard.readText();
 
+const logger = createLogger({
+  format: format.combine(
+    format.errors({ stack: true }),
+    format.timestamp({ format: "YYYY-MM-DD HH:mm:ss:SSS" })
+  ),
+  transports: [
+    new DailyRotateFile({
+      filename: path.join(HOME_DIR, "logs", "%DATE%.log"),
+      datePattern: "YYYY-MM-DD-HH",
+      level: "error",
+      maxSize: "20m",
+      maxFiles: "14d",
+      format: format.combine(
+        format.printf(({ timestamp, level, message, stack }) => {
+          return `${timestamp}\n${stack || message}`;
+        })
+      ),
+    }),
+  ],
+});
+
 // change node-syosetu-downloader cache directory
 setCacheDir(path.join(app.getPath("sessionData"), ".puppeteer"));
 
@@ -96,7 +120,12 @@ createClipboardObserver();
 
   setInterval(
     () => {
-      updateSyosetuAll(true).then(syncSyosetuAll);
+      // warmup
+      wait(1024 * 60)
+        .then(() => {
+          updateSyosetuAll(true);
+        })
+        .then(syncSyosetuAll);
     },
     // 3 hours
     UPDATE_DELAY
@@ -159,24 +188,23 @@ function toTime(d: number) {
   return DateTime.fromMillis(d).toFormat("yyyy-MM-dd HH:mm:ss") || "Unknown";
 }
 
+function toISOTime(d: number) {
+  return DateTime.fromMillis(d).toISO({ includeOffset: false }) || "Unknown";
+}
+
 function getLibPath() {
   return cookies.outputDir;
 }
 
-function getLibSyosetuPath(provider: string, bookId: string) {
-  return path.join(getLibPath(), provider, convertFileName(bookId));
-}
+// function getLibSyosetuPath(provider: string, bookId: string) {
+//   return path.join(getLibPath(), provider, convertFileName(bookId));
+// }
 
-function getLibSyosetuFilePath(
-  provider: string,
-  syosetuTitle: string,
-  fileName: string
-) {
+function getLibSyosetuFilePath(provider: string, syosetuTitle: string) {
   return path.join(
     getLibPath(),
     provider,
-    convertFileName(syosetuTitle),
-    convertFileName(fileName) + ".txt"
+    convertFileName(syosetuTitle) + ".txt"
   );
 }
 
@@ -385,8 +413,12 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
 
           files.push(newFile);
         } catch (err) {
-          console.error(
-            `Chapter Creation Error: ${provider}/${bookId}/${chapterId}`
+          console.error(`Chapter Error: ${provider}/${bookId}/${chapterId}`);
+          logger.error(
+            new Error(
+              (isError(err) ? err.message : "ChapterError") +
+                `: ${provider}/${bookId}/${chapterId}`
+            )
           );
         }
       }
@@ -398,6 +430,12 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     } else {
       console.error(`Metadata Fetch Error: ${provider}/${bookId}`);
       syosetu.erroredAt = Date.now();
+      logger.error(
+        new Error(
+          (isError(err) ? err.message : "FetchError") +
+            `: ${provider}/${bookId}`
+        )
+      );
     }
     // skip file update
     return isUpdated;
@@ -435,6 +473,12 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
           `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
         );
         syosetu.erroredAt = Date.now();
+        logger.error(
+          new Error(
+            (isError(err) ? err.message : "FetchError") +
+              `: ${provider}/${bookId}/${chapterId}`
+          )
+        );
       }
     }
 
@@ -512,14 +556,6 @@ function syncSyosetu(syosetu: Syosetu) {
   const provider = syosetu.provider;
   const bookId = syosetu.id;
 
-  // check syosetu is updated
-  const libPath = getLibSyosetuPath(provider, bookId);
-  const isUpdated =
-    syosetu.updatedAt > syosetu.syncedAt || !fs.existsSync(libPath);
-  if (!isUpdated) {
-    return false;
-  }
-
   const currMeta = getCurrentMeta(syosetu);
   if (!currMeta) {
     return false;
@@ -531,13 +567,18 @@ function syncSyosetu(syosetu: Syosetu) {
     return false;
   }
 
-  // clear directory
-  removeDir(libPath);
+  // check syosetu is updated
+  const filePath = getLibSyosetuFilePath(provider, currMeta.title);
+  const isUpdated =
+    syosetu.updatedAt > syosetu.syncedAt || !fs.existsSync(filePath);
+  if (!isUpdated) {
+    return false;
+  }
 
   let texts = [];
-  // create info file
+
+  // create info
   (() => {
-    const filePath = getLibSyosetuFilePath(provider, bookId, "0");
     const data = table(
       [
         ["URL", syosetu.url],
@@ -545,8 +586,8 @@ function syncSyosetu(syosetu: Syosetu) {
         ["AUTHOR", currMetaData.author],
         ["COMPLETE", !currMetaData.onGoing ? "YES" : "NO"],
         ["NUMBER_OF_CHAPTERS", "" + currMetaData.chapterIds.length],
-        ["CREATED", toTime(currMetaData.createdAt)],
-        ["UPDATED", toTime(currMetaData.updatedAt)],
+        ["CREATED", toISOTime(currMetaData.createdAt)],
+        ["UPDATED", toISOTime(currMetaData.updatedAt)],
         ["OUTLINE", currMetaData.outline],
       ],
       {
@@ -558,39 +599,25 @@ function syncSyosetu(syosetu: Syosetu) {
     );
 
     texts.push(data);
-
-    writeText(filePath, data);
   })();
 
-  // create txt files
+  // create chapters
   for (let i = 0; i < currMetaData.chapterIds.length; i++) {
     const chapterId = currMetaData.chapterIds[i];
     const chapterFile = syosetu.files.find((file) => file.id === chapterId);
-    const txtPath = getLibSyosetuFilePath(provider, bookId, "" + (i + 1));
     const chapter = chapterFile
       ? (readJSON(chapterFile.path) as IChapter | undefined)
       : undefined;
 
-    let data = "";
     if (!chapter) {
-      data = "FILE NOT FOUND";
+      texts.push(`${chapterId}\n\n\n\nFILE NOT FOUND`);
     } else {
-      data = `${chapter.title}\n\n\n${chapter.content}`;
-      texts.push(data);
+      texts.push(`${chapter.title}\n\n\n\n${chapter.content}`);
     }
-
-    writeText(txtPath, data);
   }
 
   // create joined txt file
-  (() => {
-    const filePath = getLibSyosetuFilePath(
-      provider,
-      bookId,
-      `[${currMetaData.author}] ${currMetaData.title}`
-    );
-    writeText(filePath, texts.join("\n\n\n"));
-  })();
+  writeText(filePath, texts.join("\n\n\n\n"));
 
   return true;
 }
@@ -732,18 +759,33 @@ function createTrayMenu() {
 
       versionMenuItems.push(
         { type: "separator" },
+
+        // {
+        //   label:
+        //     process.platform === "darwin"
+        //       ? "Open in Finder"
+        //       : `Open in File Explorer`,
+        //   click: () => {
+        //     const dirPath = getLibSyosetuPath(provider, syosetu.id);
+        //     if (fs.existsSync(dirPath)) {
+        //       shell.openPath(dirPath);
+        //     }
+        //   },
+        // },
+
         {
-          label:
-            process.platform === "darwin"
-              ? "Open in Finder"
-              : `Open in File Explorer`,
+          label: process.platform === "darwin" ? "Read" : `Read`,
           click: () => {
-            const dirPath = getLibSyosetuPath(provider, syosetu.id);
-            if (fs.existsSync(dirPath)) {
-              shell.openPath(dirPath);
+            const currMeta = getCurrentMeta(syosetu);
+            if (currMeta) {
+              const filePath = getLibSyosetuFilePath(provider, currMeta.title);
+              if (fs.existsSync(filePath)) {
+                shell.openPath(filePath);
+              }
             }
           },
         },
+        { type: "separator" },
         {
           label:
             process.platform === "darwin"
@@ -763,9 +805,7 @@ function createTrayMenu() {
             if (index > -1) {
               const rms = cookies.syosetus.splice(index, 1)[0];
               const p1 = getSyosetuPath(rms.provider, rms.id);
-              const p2 = getLibSyosetuPath(rms.provider, rms.id);
               removeDir(p1);
-              removeDir(p2);
               saveCookies();
             }
             updateTray();
