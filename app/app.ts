@@ -332,8 +332,6 @@ function parseClipboard(text: string) {
 }
 
 async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
-  let isUpdated = false;
-
   const { url, provider, metas, files } = syosetu;
   const bookId = syosetu.id;
   const lastMeta = metas[metas.length - 1];
@@ -347,21 +345,21 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
         `Completed syosetu will not be updated: ${provider}/${bookId}`
       );
     }
-    return isUpdated;
+    return;
   }
 
   if (syosetu.removedAt) {
     if (IS_DEV) {
       console.log(`Removed syosetu will not be updated: ${provider}/${bookId}`);
     }
-    return isUpdated;
+    return;
   }
 
   if (syosetu.updatedAt + ADJUSTED_UPDATE_DELAY > Date.now() && !force) {
     if (IS_DEV) {
       console.log(`Not time to update yet: ${provider}/${bookId}`);
     }
-    return isUpdated;
+    return;
   }
 
   try {
@@ -381,8 +379,12 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     }
 
     // sync after update
-    isUpdated = !lastMeta || lastMeta.updatedAt !== latestMeta.updatedAt;
+    const isUpdated = !lastMeta || lastMeta.updatedAt !== latestMeta.updatedAt;
     if (isUpdated) {
+      // set updatedAt
+      syosetu.updatedAt = Date.now();
+
+      // append new meta
       const prevMeta = syosetu.metas.find((meta) => meta.id === metaId);
       if (!prevMeta) {
         const newMeta: SyosetuMeta = {
@@ -438,7 +440,7 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
       );
     }
     // skip file update
-    return isUpdated;
+    return;
   }
 
   // download and write chapters
@@ -461,7 +463,6 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
       }
       const fileData = await getChapter(provider, bookId, chapterId);
       writeJSON(filePath, fileData);
-      isUpdated = true;
     } catch (err) {
       if (isError(err) && err.status === 404) {
         console.error(
@@ -485,8 +486,6 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     // delay
     await wait(512 * generateRandomNumber(2, 4));
   }
-
-  return isUpdated;
 }
 
 async function updateSyosetuAll(force?: boolean) {
@@ -509,9 +508,9 @@ async function updateSyosetuAll(force?: boolean) {
   while (i < cookies.syosetus.length) {
     const syosetu = cookies.syosetus[i];
     try {
-      const isUpdated = await updateSyosetu(syosetu, force);
-      if (isUpdated) {
-        syosetu.updatedAt = Date.now();
+      const prevUpdatedAt = syosetu.updatedAt;
+      await updateSyosetu(syosetu, force);
+      if (prevUpdatedAt !== syosetu.updatedAt) {
         updatedCount++;
       }
     } catch (err) {
@@ -558,13 +557,13 @@ function syncSyosetu(syosetu: Syosetu) {
 
   const currMeta = getCurrentMeta(syosetu);
   if (!currMeta) {
-    return false;
+    return;
   }
 
   // read meta.json
   const currMetaData = readJSON(currMeta.path) as IMeta | undefined;
   if (!currMetaData) {
-    return false;
+    return;
   }
 
   // check syosetu is updated
@@ -572,14 +571,16 @@ function syncSyosetu(syosetu: Syosetu) {
   const isUpdated =
     syosetu.updatedAt > syosetu.syncedAt || !fs.existsSync(filePath);
   if (!isUpdated) {
-    return false;
+    return;
   }
 
-  let texts = [];
+  syosetu.syncedAt = Date.now();
+
+  const texts = [];
 
   // create info
-  (() => {
-    const data = table(
+  texts.push(
+    table(
       [
         ["URL", syosetu.url],
         ["TITLE", currMetaData.title],
@@ -596,10 +597,8 @@ function syncSyosetu(syosetu: Syosetu) {
         // drawHorizontalLine: () => false,
         // drawVerticalLine: () => false,
       }
-    );
-
-    texts.push(data);
-  })();
+    )
+  );
 
   // create chapters
   for (let i = 0; i < currMetaData.chapterIds.length; i++) {
@@ -618,8 +617,6 @@ function syncSyosetu(syosetu: Syosetu) {
 
   // create joined txt file
   writeText(filePath, texts.join("\n\n\n\n"));
-
-  return true;
 }
 
 async function syncSyosetuAll() {
@@ -638,19 +635,25 @@ async function syncSyosetuAll() {
   while (i < cookies.syosetus.length) {
     const syosetu = cookies.syosetus[i];
     try {
-      const isSynced = syncSyosetu(syosetu);
-      if (isSynced) {
-        syosetu.syncedAt = Date.now();
+      const prevSyncedAt = syosetu.syncedAt;
+      syncSyosetu(syosetu);
+      if (prevSyncedAt !== syosetu.syncedAt) {
         synchronizedCount++;
       }
-      cookies.syncedAt = Date.now();
     } catch (err) {
       console.error(err);
     }
+
+    cookies.syncedAt = Date.now();
+
     if (execUpdate) {
       execUpdate = false;
       execSync = false;
-      await updateSyosetuAll();
+      try {
+        await updateSyosetuAll();
+      } catch(err) {
+        console.error(err);
+      }
       i = 0;
     } else if (execSync) {
       execSync = false;
