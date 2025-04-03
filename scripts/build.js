@@ -6,15 +6,6 @@ import { build, Platform } from "electron-builder";
 
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-const APP_ID = `com.shinich39.syosetuversionmanager`;
-const SCHEME = "syosetuversionmanager";
-const AUTHOR = "shinich39";
-const PUBLISH = {
-  "provider": "github",
-  "owner": "shinich39",
-  "repo": "syosetu-version-manager"
-}
-
 const targets = process.platform === "darwin" 
   ? Platform.MAC.createTarget()
   : process.platform === "win32"
@@ -34,25 +25,18 @@ if (!targets) {
 build({
   targets: targets,
   config: {
-    appId: APP_ID,
-    // productName: pkg.productName,
-    // artifactName: "${productName} ${version}.${ext}",
-    copyright: `Copyright © ${new Date().getFullYear()} ${AUTHOR}`,
-    publish: PUBLISH,
+    appId: "com.shinich39.syosetuversionmanager",
+    // productName: Change "productName" value in package.json
+    artifactName: pkg.productName.replace(/\s/g, "-") + "-${version}-${arch}.${ext}",
+    publish: {
+      "provider": "github",
+      "owner": "shinich39",
+      "repo": "syosetu-version-manager"
+    },
 
     // compress app directory to app.asar
     asar: true,
-  
-    // protocols: {
-    //   name: pkg.productName,
-    //   schemes: [SCHEME],
-    // },
-  
-    compression: "normal",
-    removePackageScripts: true,
-    nodeGypRebuild: false,
-    buildDependenciesFromSource: false,
-    
+ 
     directories: {
       output: "dist",
       buildResources: "assets"
@@ -67,47 +51,39 @@ build({
       "README.md",
     ],
   
-    extraFiles: [
-      // {
-      //   from: "build/Release",
-      //   to: nodeAddonDir,
-      //   filter: "*.node"
-      // }
-    ],
-  
     extraResources: [
       "assets/**"
     ],
   
     win: {
       target: [
-        // "zip",
-        "nsis",
-        // "portable"
-      ],
+        {
+          target: "nsis",
+          arch: [
+            "ia32", // x86
+            "x64",
+            "arm64",
+          ]
+        },
+      ]
     },
     nsis: {
-      // artifactName: "${productName} Setup ${version}.${ext}",
       oneClick: false,
-      perMachine: true,
-      allowElevation: true,
       allowToChangeInstallationDirectory: true,
-      createDesktopShortcut: true,
-      // deleteAppDataOnUninstall: true,
     },
   
     mac: {
       target: [
-        // "zip",
-        "dmg",
+        {
+          target: "dmg",
+          arch: [
+            "x64", // intel
+            "arm64", // apple silicon
+          ]
+        }
       ],
       hardenedRuntime: true,
       gatekeeperAssess: false,
-      // extendInfo: {
-      //   NSAppleEventsUsageDescription: 'Let me use Apple Events.',
-      //   NSCameraUsageDescription: 'Let me use the camera.',
-      //   NSScreenCaptureDescription: 'Let me take screenshots.',
-      // },
     },
     dmg: {
       // https://www.electron.build/dmg.html#configuration
@@ -134,25 +110,16 @@ build({
     },
   
     linux: {
-      desktop: {
-        StartupNotify: "false",
-        Encoding: "UTF-8",
-        MimeType: `x-scheme-handler/${SCHEME}`
-      },
       target: [
-        "AppImage",
-        // "rpm",
-        // "deb",
+        {
+          target: "AppImage",
+          arch: [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
     },
-    // deb: {
-    //   priority: "optional",
-    //   afterInstall:"installer/linux/after-install.tpl",
-    // },
-    // rpm: {
-    //   fpm: ["--before-install", "installer/linux/before-install.tpl"],
-    //   afterInstall:"installer/linux/after-install.tpl",
-    // }
   },
 })
 .then((result) => {

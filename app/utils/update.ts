@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { getLatestRelease, downloadAsset, getAsset } from "node-github-sync";
 import { parse as parseYaml } from "yaml";
 import { spawn } from "node:child_process";
@@ -8,7 +9,19 @@ import { compareVersions, isError, isVersion } from "utils-js";
 import { showConfirm } from "./message.js";
 import { getWindow, getWindows } from "./window.js";
 
-function validateOS() {
+interface Latest {
+  version: string;
+  files: {
+    url: string;
+    sha512: string;
+    size: number;
+  }[];
+  path: string;
+  sha512: string;
+  releaseDate: string;
+}
+
+function isSupportedOS() {
   switch (process.platform) {
     case "darwin":
     case "win32":
@@ -27,6 +40,35 @@ function getLatestFileName() {
     case "linux":
       return "latest-linux.yml";
   }
+}
+
+function getInfoFileSuffix() {
+  let suffix = "";
+  switch (process.platform) {
+    case "win32":
+      suffix = ".exe";
+      break;
+    case "darwin":
+      suffix = ".dmg";
+      break;
+    case "linux":
+      suffix = ".AppImage";
+      break;
+    default:
+      throw new Error(`OS not supported: ${process.platform}`);
+  }
+
+  switch (process.arch) {
+    case "ia32":
+    case "x64":
+    case "arm":
+    case "arm64":
+      suffix = process.arch + suffix;
+      break;
+    // default: throw new Error(`Architecture not supported: ${process.arch}`);
+  }
+
+  return suffix;
 }
 
 function runAfterQuit(filePath: string) {
@@ -62,7 +104,7 @@ export class Update {
 
   static async github(owner: string, repo: string, token?: string) {
     try {
-      if (!validateOS()) {
+      if (!isSupportedOS()) {
         throw new Error(`OS not supported: ${process.platform}`);
       }
 
@@ -78,7 +120,6 @@ export class Update {
 
       const assets = release.assets;
 
-      // "latest.yml" | "latest-mac.yml" | "latest-linux.yml"
       const latestInfoName = getLatestFileName();
       if (!latestInfoName) {
         throw new Error(`OS not supported: ${process.platform}`);
@@ -97,7 +138,7 @@ export class Update {
       );
 
       // parse latest.yml
-      const info = parseYaml(infoBuffer.toString("utf8"));
+      const info: Latest = parseYaml(infoBuffer.toString("utf8"));
 
       const latestVersion = info.version;
       if (!isVersion(latestVersion)) {
@@ -109,9 +150,21 @@ export class Update {
         );
       }
 
-      const asset = assets.find((item) => item.name === info.path);
+      // find file from info.files
+      const infoFileSuffix = getInfoFileSuffix();
+      const infoFile = info.files.find(
+        (file) => file.url.indexOf(infoFileSuffix) > -1
+      );
+      if (!infoFile) {
+        throw new Error(`File not found: ${info.path}`);
+      }
+
+      const infoFileName = path.basename(infoFile.url);
+
+      // find asset from released assets
+      const asset = assets.find((item) => item.name === infoFileName);
       if (!asset) {
-        throw new Error(`No asset file: ${info.path}`);
+        throw new Error(`Released file not found: ${info.path}`);
       }
 
       const filePath = path.join(app.getPath("downloads"), asset.name);

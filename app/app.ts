@@ -107,7 +107,7 @@ const logger = createLogger({
 setCacheDir(path.join(app.getPath("sessionData"), ".puppeteer"));
 
 // hide doc icon
-if (process.platform === "darwin") {
+if (process.platform === "darwin" && app.dock) {
   app.dock.hide();
 }
 
@@ -156,14 +156,6 @@ createClipboardObserver();
   }
 })();
 
-// update every 6 hours
-// setInterval(
-//   () => {
-//     updateItems();
-//   },
-//   1000 * 60 * 60 * 6
-// );
-
 function updateTray() {
   udptTray(createTrayMenu());
 }
@@ -195,10 +187,6 @@ function toISOTime(d: number) {
 function getLibPath() {
   return cookies.outputDir;
 }
-
-// function getLibSyosetuPath(provider: string, bookId: string) {
-//   return path.join(getLibPath(), provider, convertFileName(bookId));
-// }
 
 function getLibSyosetuFilePath(provider: string, syosetuTitle: string) {
   return path.join(
@@ -651,7 +639,7 @@ async function syncSyosetuAll() {
       execSync = false;
       try {
         await updateSyosetuAll();
-      } catch(err) {
+      } catch (err) {
         console.error(err);
       }
       i = 0;
@@ -958,8 +946,6 @@ app.whenReady().then(() => {
       tray.popUpContextMenu();
     }, 39);
   });
-
-  // app.on("activate", () => {});
 
   Update.github("shinich39", "syosetu-version-manager");
 });
