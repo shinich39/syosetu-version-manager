@@ -75,6 +75,19 @@ const ENTITIES = {
   ERRORED: "(error)",
 };
 
+const dev = {
+  log: function (...args: any[]) {
+    if (IS_DEV) {
+      console.log(...args);
+    }
+  },
+  error: function (...args: any[]) {
+    if (IS_DEV) {
+      console.error(...args);
+    }
+  },
+};
+
 let cookies = new Cookies(),
   inProgress = false,
   execSync = false,
@@ -309,7 +322,7 @@ function parseClipboard(text: string) {
   }
 
   if (IS_DEV) {
-    console.log(`${addedCount} syosetu added.`);
+    dev.log(`${addedCount} syosetu added.`);
   } else if (addedCount > 0) {
     showNoti(`${addedCount} syosetu added.`);
   }
@@ -328,25 +341,17 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
   syosetu.erroredAt = 0;
 
   if (syosetu.completedAt) {
-    if (IS_DEV) {
-      console.log(
-        `Completed syosetu will not be updated: ${provider}/${bookId}`
-      );
-    }
+    dev.log(`Completed syosetu will not be updated: ${provider}/${bookId}`);
     return;
   }
 
   if (syosetu.removedAt) {
-    if (IS_DEV) {
-      console.log(`Removed syosetu will not be updated: ${provider}/${bookId}`);
-    }
+    dev.log(`Removed syosetu will not be updated: ${provider}/${bookId}`);
     return;
   }
 
   if (syosetu.updatedAt + ADJUSTED_UPDATE_DELAY > Date.now() && !force) {
-    if (IS_DEV) {
-      console.log(`Not time to update yet: ${provider}/${bookId}`);
-    }
+    dev.log(`Not time to update yet: ${provider}/${bookId}`);
     return;
   }
 
@@ -359,11 +364,15 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     const metaPath = getSyosetuMetaPath(provider, bookId, metaId);
     if (!fs.existsSync(metaPath)) {
       writeJSON(metaPath, latestMeta);
+
+      dev.log(`A new meta has been created: ${metaPath}`);
     }
 
     // check completed
     if (!latestMeta.onGoing) {
       syosetu.completedAt = latestMeta.updatedAt;
+
+      dev.log(`A syosetu completed: ${latestMeta.title}`);
     }
 
     // sync after update
@@ -371,6 +380,8 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     if (isUpdated) {
       // set updatedAt
       syosetu.updatedAt = Date.now();
+
+      dev.log(`New updates found: ${latestMeta.title}`);
 
       // append new meta
       const prevMeta = syosetu.metas.find((meta) => meta.id === metaId);
@@ -403,7 +414,8 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
 
           files.push(newFile);
         } catch (err) {
-          console.error(`Chapter Error: ${provider}/${bookId}/${chapterId}`);
+          dev.error(`Chapter Error: ${provider}/${bookId}/${chapterId}`);
+
           logger.error(
             new Error(
               (isError(err) ? err.message : "ChapterError") +
@@ -415,11 +427,14 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     }
   } catch (err) {
     if (isError(err) && err.status === 404) {
-      console.error(`Syosetu has been removed: ${provider}/${bookId}`);
+      dev.error(`Syosetu has been removed: ${provider}/${bookId}`);
+
       syosetu.removedAt = Date.now();
     } else {
-      console.error(`Metadata Fetch Error: ${provider}/${bookId}`);
+      dev.error(`Metadata Fetch Error: ${provider}/${bookId}`);
+
       syosetu.erroredAt = Date.now();
+
       logger.error(
         new Error(
           (isError(err) ? err.message : "FetchError") +
@@ -438,9 +453,10 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
     file.updatedAt = Date.now();
 
     if (file.removedAt) {
-      console.error(
+      dev.error(
         `Removed chapters will not be download: ${provider}/${bookId}/${chapterId}`
       );
+
       continue;
     }
 
@@ -453,14 +469,14 @@ async function updateSyosetu(syosetu: Syosetu, force?: boolean) {
       writeJSON(filePath, fileData);
     } catch (err) {
       if (isError(err) && err.status === 404) {
-        console.error(
+        dev.error(
           `Chapter has been removed: ${provider}/${bookId}/${chapterId}`
         );
+
         file.removedAt = Date.now();
       } else {
-        console.error(
-          `Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`
-        );
+        dev.error(`Chapter Fetch Error: ${provider}/${bookId}/${chapterId}`);
+
         syosetu.erroredAt = Date.now();
         logger.error(
           new Error(
@@ -488,8 +504,8 @@ async function updateSyosetuAll(force?: boolean) {
   execUpdate = false;
   updateTray();
 
-  if (IS_DEV && force) {
-    console.log("start forced update.");
+  if (force) {
+    dev.log("Start forced update.");
   }
 
   let i = 0;
@@ -502,7 +518,7 @@ async function updateSyosetuAll(force?: boolean) {
         updatedCount++;
       }
     } catch (err) {
-      console.error(err);
+      dev.error(err);
     }
 
     cookies.updatedAt = Date.now();
@@ -519,7 +535,7 @@ async function updateSyosetuAll(force?: boolean) {
   }
 
   if (IS_DEV) {
-    console.log(`${updatedCount} syosetu updated.`);
+    dev.log(`${updatedCount} syosetu updated.`);
   } else if (updatedCount > 0) {
     showNoti(`${updatedCount} syosetu updated.`);
   }
@@ -629,7 +645,7 @@ async function syncSyosetuAll() {
         synchronizedCount++;
       }
     } catch (err) {
-      console.error(err);
+      dev.error(err);
     }
 
     cookies.syncedAt = Date.now();
@@ -640,7 +656,7 @@ async function syncSyosetuAll() {
       try {
         await updateSyosetuAll();
       } catch (err) {
-        console.error(err);
+        dev.error(err);
       }
       i = 0;
     } else if (execSync) {
@@ -656,9 +672,7 @@ async function syncSyosetuAll() {
   updateTray();
   cookies.write();
 
-  if (IS_DEV) {
-    console.log(`${synchronizedCount} syosetu synchronized.`);
-  }
+  dev.log(`${synchronizedCount} syosetu synchronized.`);
 
   return synchronizedCount;
 }
@@ -679,8 +693,9 @@ function createTrayMenu() {
       const isErrored = syosetu.erroredAt;
 
       // updated within 24 hours
-      const isUpdated =
-        lastMeta && lastMeta.updatedAt + 1000 * 60 * 60 * 24 > Date.now();
+      // const isUpdated =
+      //   lastMeta && lastMeta.updatedAt + 1000 * 60 * 60 * 24 > Date.now();
+      const isUpdated = syosetu.updatedAt + 1000 * 60 * 60 * 24 > Date.now();
 
       let syosutuLabel = "";
       if (!currMeta) {
@@ -826,6 +841,38 @@ function createTrayMenu() {
     ...syncMenuItems,
     { type: "separator" },
     {
+      label: "Open Library",
+      click: async (menuItem, baseWindow, event) => {
+        const dirPath = getLibPath();
+        createDir(dirPath);
+        shell.openPath(dirPath);
+      },
+    },
+    {
+      label: "Export List",
+      click: async () => {
+        const filePath = await showSaveFile({
+          title: "Export syosetu list as txt file",
+          defaultPath: path.join(app.getPath("downloads"), "Syosetu List.txt"),
+        });
+
+        if (!filePath) {
+          return;
+        }
+
+        const data = cookies.syosetus
+          .map((syosetu) => {
+            const meta = getCurrentMeta(syosetu);
+            const title = meta?.title || "Initializing...";
+            return title + "\n" + syosetu.url;
+          })
+          .join("\n\n");
+
+        writeText(filePath, data);
+      },
+    },
+    { type: "separator" },
+    {
       label: "Help",
       submenu: [
         {
@@ -852,74 +899,45 @@ function createTrayMenu() {
           enabled: false,
           label: `${cookies.syosetus.length} syosetu`,
         },
-        {
-          visible: false,
-          label:
-            process.platform === "darwin"
-              ? "Open in Finder"
-              : `Open in File Explorer`,
-          click: async (menuItem, baseWindow, event) => {
-            const dirPath = getLibPath();
-            createDir(dirPath);
-            shell.openPath(dirPath);
-          },
-        },
-        {
-          visible: false,
-          label: "Change directory",
-          click: async (menuItem, baseWindow, event) => {
-            const dirPath = await showOpenDir({
-              title: "Select an export directory",
-              defaultPath: getLibPath(),
-            });
-            if (!dirPath) {
-              return;
-            }
-            if (cookies.outputDir === dirPath) {
-              return;
-            }
-            if (IS_DEV) {
-              console.log("Change export directory:", cookies.outputDir);
-            }
 
-            cookies.outputDir = dirPath;
-            for (const syosetu of cookies.syosetus) {
-              syosetu.syncedAt = 0;
-            }
+        // {
+        //   visible: false,
+        //   label:
+        //     process.platform === "darwin"
+        //       ? "Open in Finder"
+        //       : `Open in File Explorer`,
+        //   click: async (menuItem, baseWindow, event) => {
+        //     const dirPath = getLibPath();
+        //     createDir(dirPath);
+        //     shell.openPath(dirPath);
+        //   },
+        // },
+        // {
+        //   visible: false,
+        //   label: "Change directory",
+        //   click: async (menuItem, baseWindow, event) => {
+        //     const dirPath = await showOpenDir({
+        //       title: "Select an export directory",
+        //       defaultPath: getLibPath(),
+        //     });
+        //     if (!dirPath) {
+        //       return;
+        //     }
+        //     if (cookies.outputDir === dirPath) {
+        //       return;
+        //     }
 
-            saveCookies();
-            syncSyosetuAll();
-          },
-        },
-        {
-          type: "separator",
-        },
-        {
-          label: "Export List",
-          click: async () => {
-            const filePath = await showSaveFile({
-              title: "Export syosetu list as txt file",
-              defaultPath: path.join(
-                app.getPath("downloads"),
-                "Syosetu List.txt"
-              ),
-            });
+        //     dev.log("Change export directory:", cookies.outputDir);
 
-            if (!filePath) {
-              return;
-            }
+        //     cookies.outputDir = dirPath;
+        //     for (const syosetu of cookies.syosetus) {
+        //       syosetu.syncedAt = 0;
+        //     }
 
-            const data = cookies.syosetus
-              .map((syosetu) => {
-                const meta = getCurrentMeta(syosetu);
-                const title = meta?.title || "Initializing...";
-                return title + "\n" + syosetu.url;
-              })
-              .join("\n\n");
-
-            writeText(filePath, data);
-          },
-        },
+        //     saveCookies();
+        //     syncSyosetuAll();
+        //   },
+        // },
         {
           type: "separator",
         },

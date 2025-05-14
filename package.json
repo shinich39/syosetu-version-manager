@@ -1,7 +1,7 @@
 {
   "name": "syosetu-version-manager",
   "productName": "Syosetu Version Manager",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "mikumiku",
   "main": "bin/app.js",
   "type": "module",
@@ -10,6 +10,7 @@
     "dev": "npm run lint && npm run prettier && npm run compile && cross-env NODE_ENV=development electron .",
     "test": "tsx --test \"**/*.test.{js,jsx,ts,tsx}\"",
     "build": "npm run lint && npm run prettier && npm run compile && node scripts/build.js",
+    "version": "npm install --package-lock-only",
     "compile": "node scripts/compile.js",
     "prettier": "prettier --write \"app/**/*.{js,jsx,ts,tsx}\"",
     "lint": "eslint \"app/**/*\"",
